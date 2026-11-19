@@ -45,7 +45,18 @@ sc = spark.sparkContext
 
 # Each file is read as a pair:
 # (file_path, file_content)
-documents = sc.wholeTextFiles("data/*.txt")
+documents_data = []
+
+for file_name in sorted(os.listdir("data")):
+    if file_name.endswith(".txt"):
+        file_path = os.path.join("data", file_name)
+
+        with open(file_path, "r", encoding="utf-8") as file:
+            content = file.read()
+
+        documents_data.append((file_path, content))
+
+documents = sc.parallelize(documents_data)
 
 # Calculate the word count for each document.
 
