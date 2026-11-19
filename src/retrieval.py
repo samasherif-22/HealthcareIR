@@ -1,4 +1,3 @@
-
 import os
 import sys
 import json
@@ -150,6 +149,90 @@ with open(OUTPUT_DIR / "term_statistics.csv", "w",
             f'{term_statistics[term]["IDF"]:.4f}'
         ])
 
+
+# =====================================================================
+# MEMBER 3: TF-IDF, Document Vector Lengths, L2 Normalization
+# (uses weighted_matrix and term_statistics from Member 2's section above,
+#  at full precision, not the rounded CSV values)
+# =====================================================================
+
+# TF-IDF = Weighted TF x IDF
+tfidf_matrix = {
+    term: {
+        doc: weighted_matrix[term][doc] * term_statistics[term]["IDF"]
+        for doc in DOCS
+    }
+    for term in terms
+}
+
+# Document vector length = sqrt(sum of squared TF-IDF values of the document)
+doc_lengths = {
+    doc: math.sqrt(sum(tfidf_matrix[term][doc] ** 2 for term in terms))
+    for doc in DOCS
+}
+
+# Normalized TF-IDF = TF-IDF / document length
+normalized_matrix = {
+    term: {
+        doc: tfidf_matrix[term][doc] / doc_lengths[doc]
+        for doc in DOCS
+    }
+    for term in terms
+}
+
+# Write TF-IDF
+with open(OUTPUT_DIR / "tfidf.csv", "w",
+          newline="", encoding="utf-8") as file:
+    writer = csv.writer(file)
+    writer.writerow(["term"] + DOCS)
+
+    for term in terms:
+        writer.writerow(
+            [term] + [
+                f"{tfidf_matrix[term][doc]:.4f}"
+                if tfidf_matrix[term][doc] else "0"
+                for doc in DOCS
+            ]
+        )
+
+# Write Document Vector Lengths
+with open(OUTPUT_DIR / "vector_lengths.csv", "w",
+          newline="", encoding="utf-8") as file:
+    writer = csv.writer(file)
+    writer.writerow(["doc", "length"])
+
+    for doc in DOCS:
+        writer.writerow([doc, f"{doc_lengths[doc]:.4f}"])
+
+# Write Normalized TF-IDF
+with open(OUTPUT_DIR / "normalized_tfidf.csv", "w",
+          newline="", encoding="utf-8") as file:
+    writer = csv.writer(file)
+    writer.writerow(["term"] + DOCS)
+
+    for term in terms:
+        writer.writerow(
+            [term] + [
+                f"{normalized_matrix[term][doc]:.4f}"
+                if normalized_matrix[term][doc] else "0"
+                for doc in DOCS
+            ]
+        )
+
+# Member 3 validation
+print("\nDocument lengths:")
+for doc in DOCS:
+    print(doc, f"{doc_lengths[doc]:.4f}")
+
+print("\nCheck: sum of squares of each normalized column (should be 1):")
+for doc in DOCS:
+    print(doc, round(sum(normalized_matrix[t][doc] ** 2 for t in terms), 4))
+
+# =====================================================================
+# END OF MEMBER 3 SECTION
+# =====================================================================
+
+
 # Validation summary
 total_tokens = sum(
     sum(row.values()) for row in tf_matrix.values()
@@ -178,5 +261,8 @@ print("\nFiles written:")
 print("output/tf_matrix.csv")
 print("output/weighted_tf.csv")
 print("output/term_statistics.csv")
+print("output/tfidf.csv")
+print("output/vector_lengths.csv")
+print("output/normalized_tfidf.csv")
 
 spark.stop()
