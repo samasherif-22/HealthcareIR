@@ -13,22 +13,62 @@ with open("output/idf.csv", "r", encoding="utf-8") as f:
     for row in reader:
         idf[row["term"]] = float(row["idf"])
 
+
+# Recalculate normalized TF-IDF using full precision
+
+docs = [f"d{i}" for i in range(1, 11)]
+
+weighted_tf = {}
+
+for term, documents in positional_index.items():
+    weighted_tf[term] = {}
+
+    for doc in docs:
+        tf = len(documents.get(doc, []))
+
+        weighted_tf[term][doc] = (
+            1 + math.log10(tf) if tf > 0 else 0.0
+        )
+
+tfidf = {}
+
+for term in positional_index:
+    tfidf[term] = {}
+
+    for doc in docs:
+        tfidf[term][doc] = weighted_tf[term][doc] * idf[term]
+
+doc_lengths = {}
+
+for doc in docs:
+    doc_lengths[doc] = math.sqrt(
+        sum(tfidf[term][doc] ** 2 for term in tfidf)
+    )
+
 normalized_tfidf = {}
 
-with open("output/normalized_tfidf.csv", "r", encoding="utf-8") as f:
-    reader = csv.DictReader(f)
+for term in tfidf:
+    normalized_tfidf[term] = {}
 
-    docs = reader.fieldnames[1:]
+    for doc in docs:
+        normalized_tfidf[term][doc] = (
+            tfidf[term][doc] / doc_lengths[doc]
+            if doc_lengths[doc] > 0 else 0.0
+        )
 
-    for row in reader:
-        term = row["term"]
-        normalized_tfidf[term] = {}
+def search_term(term):
+    term = term.lower().strip()
 
-        for doc in docs:
-            normalized_tfidf[term][doc] = float(row[doc])
+    if term not in positional_index:
+        return {}
+
+    return positional_index[term]
 
 def search_phrase(phrase):
     words = phrase.lower().split()
+
+    if not words:
+        return {}
 
     first_word = words[0]
 
@@ -98,7 +138,7 @@ def cosine_similarity(query_vector, doc_id):
     for word, weight in query_vector.items():
         score += weight * normalized_tfidf[word][doc_id]
 
-    return score
+    return max(0.0, min(1.0, score))
 
 def rank_results(phrase):
     matches = search_phrase(phrase)
@@ -119,6 +159,25 @@ queries = [
     "patient care",
     "medical research"
 ]
+single_term_queries = [
+    "patient",
+    "medical",
+    "hospital"
+]
+
+for term in single_term_queries:
+
+    print("\nTerm Query:", term)
+
+    matches = search_term(term)
+
+    print("\nMatching Documents and Positions:")
+
+    if matches:
+        for doc_id, positions in matches.items():
+            print(f"{doc_id}: {positions}")
+    else:
+        print("No matching documents found.")
 
 
 for query in queries:
